@@ -793,13 +793,12 @@ const handleMessage = async (sock, msg) => {
       return sock.sendMessage(from, { text: config.messages.adminOnly }, { quoted: msg });
     }
     
-    // 🚀 FIX: Bot admin check completely removed so welcome command works without bot being admin
-    // if (command.botAdminNeeded) {
-    //   const botIsAdmin = await isBotAdmin(sock, from, groupMetadata);
-    //   if (!botIsAdmin) {
-    //     return sock.sendMessage(from, { text: config.messages.botAdminNeeded }, { quoted: msg });
-    //   }
-    // }
+    if (command.botAdminNeeded) {
+      const botIsAdmin = await isBotAdmin(sock, from, groupMetadata);
+      if (!botIsAdmin) {
+        return sock.sendMessage(from, { text: config.messages.botAdminNeeded }, { quoted: msg });
+      }
+    }
     
     // Auto-typing
     if (config.autoTyping) {
