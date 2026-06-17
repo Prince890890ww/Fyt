@@ -68,6 +68,9 @@ const path = require('path');
 const zlib = require('zlib');
 const os = require('os');
 
+// ✅ ADD THIS: Import groupstatus button handler
+const { handleGroupStatusButton } = require('./commands/admin/groupstatus');
+
 // Remove Puppeteer cache (if some dependency downloaded Chromium into ~/.cache/puppeteer)
 function cleanupPuppeteerCache() {
   try {
@@ -336,8 +339,8 @@ async function startBot() {
       jid.includes('@newsletter.');
   };
 
-  // Messages handler - Process only new messages
-  sock.ev.on('messages.upsert', ({ messages, type }) => {
+  // ✅ MODIFIED: Make this async to handle button checks
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
     // Only process "notify" type (new messages), skip "append" (old messages from history)
     if (type !== 'notify') return;
 
@@ -354,6 +357,18 @@ async function startBot() {
       // System message filter - ignore broadcast/status/newsletter messages
       if (isSystemJid(from)) {
         continue; // Silently ignore system messages
+      }
+
+      // ✅ FIRST: Check if this is a groupstatus button click
+      try {
+        const buttonHandled = await handleGroupStatusButton(sock, msg);
+        if (buttonHandled) {
+          // If button was handled, skip all further processing for this message
+          continue;
+        }
+      } catch (err) {
+        console.error('Error handling groupstatus button:', err.message);
+        // Continue to normal processing in case of error
       }
 
       // Deduplication: Skip if message has already been processed
