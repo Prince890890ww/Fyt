@@ -1,21 +1,39 @@
 const fs = require('fs');
 const path = require('path');
 
+// ✅ FORCE CREATE DATA FOLDER AND FILE
 const configFile = path.join(__dirname, '../../data/autoDaily.json');
+const configDir = path.dirname(configFile);
+
+function ensureConfigFile() {
+    try {
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+            console.log('📁 Created data directory');
+        }
+        if (!fs.existsSync(configFile)) {
+            fs.writeFileSync(configFile, JSON.stringify({ enabled: false, lastSent: {} }, null, 2));
+            console.log('📄 Created autoDaily.json');
+        }
+    } catch (err) {
+        console.error('❌ Failed to create config file:', err.message);
+    }
+}
 
 function getConfig() {
-    if (!fs.existsSync(configFile)) {
-        fs.writeFileSync(configFile, JSON.stringify({ enabled: false, lastSent: {} }));
-        return { enabled: false, lastSent: {} };
-    }
+    ensureConfigFile();
     try {
         return JSON.parse(fs.readFileSync(configFile, 'utf8'));
-    } catch {
-        return { enabled: false, lastSent: {} };
+    } catch (e) {
+        console.error('⚠️ Config read error, resetting:', e.message);
+        const defaultConfig = { enabled: false, lastSent: {} };
+        fs.writeFileSync(configFile, JSON.stringify(defaultConfig, null, 2));
+        return defaultConfig;
     }
 }
 
 function saveConfig(data) {
+    ensureConfigFile();
     fs.writeFileSync(configFile, JSON.stringify(data, null, 2));
 }
 
