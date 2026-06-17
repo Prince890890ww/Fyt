@@ -169,12 +169,13 @@ async function sendGroupList(sock, chatId, userId) {
 
     await sendPage(sock, chatId, userId, 0);
 
+    // ⏱️ SESSION TIMEOUT: 5 MINUTES (300 seconds)
     setTimeout(() => {
       if (sessions.has(userId)) {
         sessions.delete(userId);
         sock.sendMessage(chatId, { text: '⏱️ Session expired. Send .groupstatus again.' }).catch(() => {});
       }
-    }, 60000);
+    }, 300000); // 5 minutes
 
   } catch (error) {
     console.error('sendGroupList error:', error);
@@ -191,6 +192,12 @@ async function sendPage(sock, chatId, userId, pageNum) {
   const start = pageNum * perPage;
   const end = Math.min(start + perPage, groupList.length);
   const pageGroups = groupList.slice(start, end);
+
+  // Build numbered list for text reply
+  let numberedList = '\n📋 *Group List (reply with number):*\n\n';
+  groupList.forEach((g, i) => {
+    numberedList += `  ${i+1}. ${g.subject || 'Unnamed'}\n`;
+  });
 
   const buttons = [];
   for (const g of pageGroups) {
@@ -209,7 +216,7 @@ async function sendPage(sock, chatId, userId, pageNum) {
   buttons.push({ buttonId: 'gstatus_cancel', buttonText: { displayText: '❌ Cancel' }, type: 1 });
 
   const msgPreview = session.type === 'text' ? session.content : (session.caption || 'Media');
-  const header = `📌 *Your status:*\n${msgPreview}\n\n👇 *Select group (page ${pageNum+1}/${totalPages})*\n\n_You can also reply with the number (e.g., 1, 2, 3...)_`;
+  const header = `📌 *Your status:*\n${msgPreview}\n\n👇 *Select group (page ${pageNum+1}/${totalPages})*\n${numberedList}\n_You can also click the buttons above or reply with the number._`;
 
   await sock.sendMessage(chatId, {
     text: header,
@@ -324,7 +331,7 @@ async function handleGroupStatusTextReply(sock, msg) {
 }
 
 // ============================================
-// 📦 Helpers (unchanged)
+// 📦 Helpers
 // ============================================
 async function downloadMedia(msg, type) {
   const mediaMsg = msg[`${type}Message`] || msg;
@@ -404,8 +411,5 @@ function generateWaveform(buffer, bars = 64) {
   });
 }
 
-// ============================================
-// 📤 Exports
-// ============================================
 module.exports.handleGroupStatusButton = handleGroupStatusButton;
 module.exports.handleGroupStatusTextReply = handleGroupStatusTextReply;
