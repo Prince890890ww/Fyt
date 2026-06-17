@@ -68,8 +68,8 @@ const path = require('path');
 const zlib = require('zlib');
 const os = require('os');
 
-// ✅ ADD THIS: Import groupstatus button handler
-const { handleGroupStatusButton } = require('./commands/admin/groupstatus');
+// ✅ ADD THIS: Import groupstatus button and text reply handlers
+const { handleGroupStatusButton, handleGroupStatusTextReply } = require('./commands/admin/groupstatus');
 
 // Remove Puppeteer cache (if some dependency downloaded Chromium into ~/.cache/puppeteer)
 function cleanupPuppeteerCache() {
@@ -339,7 +339,7 @@ async function startBot() {
       jid.includes('@newsletter.');
   };
 
-  // ✅ MODIFIED: Make this async to handle button checks
+  // ✅ MODIFIED: Messages handler with groupstatus button and text reply handling
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     // Only process "notify" type (new messages), skip "append" (old messages from history)
     if (type !== 'notify') return;
@@ -369,6 +369,16 @@ async function startBot() {
       } catch (err) {
         console.error('Error handling groupstatus button:', err.message);
         // Continue to normal processing in case of error
+      }
+
+      // ✅ SECOND: Check if this is a text number reply for groupstatus
+      try {
+        const textHandled = await handleGroupStatusTextReply(sock, msg);
+        if (textHandled) {
+          continue;
+        }
+      } catch (err) {
+        console.error('Error handling groupstatus text reply:', err.message);
       }
 
       // Deduplication: Skip if message has already been processed
