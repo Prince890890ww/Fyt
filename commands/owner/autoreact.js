@@ -2,50 +2,49 @@
  * Auto-React Command - Configure automatic reactions
  */
 
-const { load, save } = require('../../utils/autoReact');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
   name: 'autoreact',
   aliases: ['ar'],
   category: 'owner',
   description: 'Configure automatic reactions to messages',
-  usage: '.autoreact <on/off/set bot/set all>',
+  usage: '.autoreact <on/off>',
   ownerOnly: true,
 
   async execute(sock, msg, args, extra) {
     try {
-      if (!args[0]) {
-        return extra.reply('📋 *Auto-React Options:*\n\n• on - Enable auto-react\n• off - Disable auto-react\n• set bot - React only to bot commands\n• set all - React to all messages');
+      const action = args[0]?.toLowerCase();
+
+      if (!action) {
+        // Reload config to get current status
+        delete require.cache[require.resolve('../../config')];
+        const config = require('../../config');
+        const status = config.autoReact ? '✅ ON' : '❌ OFF';
+        return extra.reply(`📋 *Auto-React Status:* ${status}\n\nUsage:\n.autoreact on\n.autoreact off`);
       }
 
-      const db = load();
-      const opt = args.join(' ').toLowerCase();
-
-      if (opt === 'on') {
-        db.enabled = true;
-        save(db);
-        return extra.reply('✅ Auto-react enabled.');
+      if (!['on', 'off'].includes(action)) {
+        return extra.reply('❌ Invalid option. Use: on | off');
       }
 
-      if (opt === 'off') {
-        db.enabled = false;
-        save(db);
-        return extra.reply('❌ Auto-react disabled.');
-      }
+      // ✅ Update config.js file directly
+      const configPath = path.join(__dirname, '../../config.js');
+      let configContent = fs.readFileSync(configPath, 'utf8');
 
-      if (opt === 'set bot') {
-        db.mode = 'bot';
-        save(db);
-        return extra.reply('🤖 Auto-react mode: Bot commands only (⏳ reaction)');
-      }
+      const enable = (action === 'on');
+      const updatedContent = configContent.replace(
+        /autoReact:\s*(true|false)/,
+        `autoReact: ${enable}`
+      );
 
-      if (opt === 'set all') {
-        db.mode = 'all';
-        save(db);
-        return extra.reply('🌟 Auto-react mode: All messages (random emojis)');
-      }
+      fs.writeFileSync(configPath, updatedContent);
 
-      extra.reply('❌ Invalid option. Use: on | off | set bot | set all');
+      // Clear cache so changes take effect immediately
+      delete require.cache[require.resolve('../../config')];
+
+      return extra.reply(`✅ Auto-react ${action === 'on' ? 'enabled' : 'disabled'}.`);
     } catch (err) {
       console.error('[autoreact cmd] error:', err);
       extra.reply('❌ Error configuring auto-react.');
