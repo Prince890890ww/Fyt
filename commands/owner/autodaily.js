@@ -33,7 +33,7 @@ function saveConfig(data) {
 }
 
 // ============================================
-// 📋 MESSAGE LISTS
+// 📋 MESSAGE LISTS (same as before)
 // ============================================
 const morningMsgs = [
     "Uth gaye? Main toh soch rahi thi ki aaj subah kaun utha hai 😊",
@@ -178,7 +178,7 @@ module.exports = {
 };
 
 // ============================================
-// 🕐 SCHEDULER
+// 🕐 SCHEDULER (Fixed Timing)
 // ============================================
 let schedulerStarted = false;
 
@@ -188,49 +188,60 @@ function startScheduler(sock) {
         return;
     }
     schedulerStarted = true;
-    console.log('🚀 AutoDaily scheduler started (funny every 35 min)');
+    console.log('🚀 AutoDaily scheduler started (fixed timing)');
 
-    // 1. Fixed slots (check every minute)
+    // 1. Fixed slots – check every 30 seconds (instead of 1 minute) to avoid missing
     setInterval(async () => {
         const config = getConfig();
         if (!config.enabled) return;
 
         const now = new Date();
         const h = now.getHours();
-        const m = now.getMinutes();
-        if (m !== 0) return;
+        const today = now.toDateString();
 
-        let slot = null, msgs = null;
+        // Determine which slot we are in
+        let slot = null;
+        let msgs = null;
+
         if (h >= 7 && h < 8) { slot = 'morning'; msgs = morningMsgs; }
         else if (h >= 12 && h < 13) { slot = 'lunch'; msgs = lunchMsgs; }
         else if (h >= 16 && h < 17) { slot = 'evening'; msgs = eveningMsgs; }
         else if (h >= 20 && h < 21) { slot = 'dinner'; msgs = dinnerMsgs; }
-        else if (h === 23) { slot = 'night'; msgs = nightMsgs; }
-        else return;
+        else if (h >= 23 || h < 1) { slot = 'night'; msgs = nightMsgs; } // night covers 23-24 and 0-1
 
+        if (!slot) return;
+
+        // Check if we already sent this slot today
+        const key = `${slot}_${today}`;
+        if (config.lastSent && config.lastSent[key]) {
+            // Already sent today, skip
+            return;
+        }
+
+        // If we are in the correct hour, send the message
         try {
             const groups = await sock.groupFetchAllParticipating();
             const list = Object.values(groups);
-            const today = new Date().toDateString();
+            if (list.length === 0) return;
 
             for (const g of list) {
-                const key = g.id + '_' + slot + '_' + today;
-                if (config.lastSent && config.lastSent[key]) continue;
-
                 const msg = msgs[Math.floor(Math.random() * msgs.length)];
                 await sock.sendMessage(g.id, { text: msg });
-                console.log('✅ ' + slot + ' sent to ' + g.subject);
-                config.lastSent = config.lastSent || {};
-                config.lastSent[key] = true;
-                saveConfig(config);
+                console.log(`✅ ${slot} sent to ${g.subject}`);
                 await new Promise(r => setTimeout(r, 2000));
             }
-        } catch (e) {
-            console.log('❌ Scheduler error:', e.message);
-        }
-    }, 60000);
 
-    // 2. Funny messages – EVERY 35 MINUTES, ALL GROUPS
+            // Mark as sent for today
+            config.lastSent = config.lastSent || {};
+            config.lastSent[key] = true;
+            saveConfig(config);
+            console.log(`📊 ${slot} messages sent to all groups for today`);
+        } catch (e) {
+            console.log(`❌ Scheduler error (${slot}):`, e.message);
+        }
+    }, 30000); // check every 30 seconds
+
+    // 2. Funny messages – EVERY 35 MINUTES
     setInterval(async () => {
         const config = getConfig();
         if (!config.enabled) return;
@@ -243,13 +254,13 @@ function startScheduler(sock) {
             for (const g of list) {
                 const msg = funnyMsgs[Math.floor(Math.random() * funnyMsgs.length)];
                 await sock.sendMessage(g.id, { text: msg });
-                console.log('😂 Funny sent to ' + g.subject);
+                console.log(`😂 Funny sent to ${g.subject}`);
                 await new Promise(r => setTimeout(r, 1500));
             }
         } catch (e) {
             console.log('❌ Funny error:', e.message);
         }
-    }, 35 * 60 * 1000); // ✅ 35 minutes
+    }, 35 * 60 * 1000); // 35 minutes
 
     console.log('✅ Scheduler started successfully');
 }
