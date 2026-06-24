@@ -33,7 +33,7 @@ function saveConfig(data) {
 }
 
 // ============================================
-// 📋 MESSAGE LISTS (same as before)
+// 📋 MESSAGE LISTS
 // ============================================
 const morningMsgs = [
     "Uth gaye? Main toh soch rahi thi ki aaj subah kaun utha hai 😊",
@@ -178,7 +178,7 @@ module.exports = {
 };
 
 // ============================================
-// 🕐 SCHEDULER (Fixed Timing)
+// 🕐 SCHEDULER (Fixed + All Groups)
 // ============================================
 let schedulerStarted = false;
 
@@ -188,9 +188,9 @@ function startScheduler(sock) {
         return;
     }
     schedulerStarted = true;
-    console.log('🚀 AutoDaily scheduler started (fixed timing)');
+    console.log('🚀 AutoDaily scheduler started (fixed timing + all groups)');
 
-    // 1. Fixed slots – check every 30 seconds (instead of 1 minute) to avoid missing
+    // 1. Fixed slots – check every 30 seconds
     setInterval(async () => {
         const config = getConfig();
         if (!config.enabled) return;
@@ -207,7 +207,7 @@ function startScheduler(sock) {
         else if (h >= 12 && h < 13) { slot = 'lunch'; msgs = lunchMsgs; }
         else if (h >= 16 && h < 17) { slot = 'evening'; msgs = eveningMsgs; }
         else if (h >= 20 && h < 21) { slot = 'dinner'; msgs = dinnerMsgs; }
-        else if (h >= 23 || h < 1) { slot = 'night'; msgs = nightMsgs; } // night covers 23-24 and 0-1
+        else if (h >= 23 || h < 1) { slot = 'night'; msgs = nightMsgs; }
 
         if (!slot) return;
 
@@ -218,11 +218,16 @@ function startScheduler(sock) {
             return;
         }
 
-        // If we are in the correct hour, send the message
+        // If we are in the correct hour, send the message to ALL groups
         try {
             const groups = await sock.groupFetchAllParticipating();
             const list = Object.values(groups);
-            if (list.length === 0) return;
+            if (list.length === 0) {
+                console.log('⚠️ No groups found for ' + slot);
+                return;
+            }
+
+            console.log(`📊 Sending ${slot} to ${list.length} groups...`);
 
             for (const g of list) {
                 const msg = msgs[Math.floor(Math.random() * msgs.length)];
@@ -235,13 +240,13 @@ function startScheduler(sock) {
             config.lastSent = config.lastSent || {};
             config.lastSent[key] = true;
             saveConfig(config);
-            console.log(`📊 ${slot} messages sent to all groups for today`);
+            console.log(`📊 ${slot} messages sent to ALL ${list.length} groups`);
         } catch (e) {
             console.log(`❌ Scheduler error (${slot}):`, e.message);
         }
     }, 30000); // check every 30 seconds
 
-    // 2. Funny messages – EVERY 35 MINUTES
+    // 2. Funny messages – EVERY 35 MINUTES, ALL GROUPS
     setInterval(async () => {
         const config = getConfig();
         if (!config.enabled) return;
@@ -249,7 +254,12 @@ function startScheduler(sock) {
         try {
             const groups = await sock.groupFetchAllParticipating();
             const list = Object.values(groups);
-            if (list.length === 0) return;
+            if (list.length === 0) {
+                console.log('⚠️ No groups for funny');
+                return;
+            }
+
+            console.log(`😂 Sending funny to ${list.length} groups...`);
 
             for (const g of list) {
                 const msg = funnyMsgs[Math.floor(Math.random() * funnyMsgs.length)];
@@ -257,6 +267,7 @@ function startScheduler(sock) {
                 console.log(`😂 Funny sent to ${g.subject}`);
                 await new Promise(r => setTimeout(r, 1500));
             }
+            console.log(`📊 Funny messages sent to ALL ${list.length} groups`);
         } catch (e) {
             console.log('❌ Funny error:', e.message);
         }
