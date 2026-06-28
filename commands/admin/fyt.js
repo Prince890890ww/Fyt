@@ -1,5 +1,5 @@
 /**
- * Fyt Command - Admin only, reads Fyt.txt and sends insults to multiple targets in loop
+ * Fyt Command - Owner only, reads Fyt.txt and sends insults to multiple targets in loop
  */
 
 const fs = require('fs');
@@ -129,11 +129,11 @@ module.exports = {
     name: 'fyt',
     aliases: ['fytcmd'],
     category: 'admin',
-    description: 'Send insults to multiple targets in loop (admin only)',
+    description: 'Send insults to multiple targets in loop (owner only)',
     usage: '.fyt @user1 @user2 ... | .fyt time <seconds> | .fyt stop | .fyt',
     groupOnly: true,
-    adminOnly: true,
-    ownerOnly: false,
+    adminOnly: false,        // Admin check hata diya
+    ownerOnly: true,         // ✅ Sirf bot owner
     botAdminNeeded: false,
 
     async execute(sock, msg, args, extra) {
@@ -142,11 +142,9 @@ module.exports = {
             const sender = msg.key.participant || msg.key.remoteJid;
             const mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-            // Check if user is admin or owner
-            const isSenderAdmin = await extra.isAdmin;
-            const isSenderOwner = extra.isOwner;
-            if (!isSenderAdmin && !isSenderOwner) {
-                return extra.reply('🛡️ Only group admins can use this command.');
+            // ✅ Owner check – sirf owner hi use kar sakta hai
+            if (!extra.isOwner) {
+                return extra.reply('👑 Only bot owner can use this command.');
             }
 
             // Initialize config for this group
